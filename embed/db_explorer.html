@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeoAI Cities DB Explorer</title>
+<style>
+  :root { --bg:#fcfcfb; --ink:#141413; --ink2:#52514e; --muted:#8a8984; --line:#e4e3df; --card:#fff; --soft:#f4f3ef; --blue:#2a78d6; --orange:#eb6834; --code:#f4f3ef; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1a1a19; --ink:#f4f3ee; --ink2:#c3c2b7; --muted:#8f8e86; --line:#383835; --card:#232321; --soft:#2a2a27; --blue:#3987e5; --orange:#d95926; --code:#2a2a27; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 -apple-system,"Segoe UI",Inter,sans-serif; }
+  .wrap { padding:14px 16px 16px; max-width:1100px; margin:0 auto; }
+  h1 { font-size:17px; margin:0 0 2px; } h2 { font-size:14px; margin:18px 0 8px; }
+  .sub { color:var(--ink2); margin:0 0 12px; font-size:13px; }
+  .graph { display:grid; grid-template-columns:1fr 1fr; gap:10px 60px; position:relative; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .col { display:grid; gap:8px; align-content:start; position:relative; z-index:1; }
+  .col h3 { margin:0 0 2px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .node { border:1px solid var(--line); border-radius:9px; padding:7px 10px; background:var(--card); cursor:pointer; font-size:13px; transition:border-color .15s, opacity .15s; }
+  .node small { display:block; color:var(--muted); font-size:11.5px; }
+  .node.dim { opacity:.35; } .node.on { border-color:var(--ink); box-shadow:0 0 0 1px var(--ink); }
+  .syn { font-size:10.5px; color:var(--orange); border:1px solid var(--orange); border-radius:99px; padding:0 6px; margin-left:4px; }
+  svg.links { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  svg.links path { fill:none; stroke:var(--line); stroke-width:1.5; }
+  svg.links path.on { stroke:var(--blue); stroke-width:2.2; }
+  .detail { margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:13px; min-height:60px; }
+  .detail code, pre { font-family:ui-monospace, Menlo, monospace; font-size:12px; }
+  .cols { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+  .cols code { background:var(--code); padding:2px 6px; border-radius:5px; }
+  .qs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  button.chip { font:inherit; font-size:12.5px; padding:5px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  button.chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  pre { background:var(--code); padding:10px 12px; border-radius:8px; overflow-x:auto; margin:0 0 8px; }
+  .tw { overflow-x:auto; } table { border-collapse:collapse; width:100%; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; } th { color:var(--muted); font-weight:500; }
+  .foot { margin-top:10px; font-size:11.5px; color:var(--muted); } .foot a { color:inherit; }
+  @media (max-width:640px) { .graph { gap:10px 24px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GeoAI Cities DB: one spatial database behind every project</h1>
+  <p class="sub">Click a layer or a project to see how they connect. Every layer records its source, and synthetic data is flagged so it can't end up in findings.</p>
+  <div class="graph" id="graph"><svg class="links" id="links"></svg>
+    <div class="col" id="layers"><h3>Layers</h3></div>
+    <div class="col" id="projects"><h3>Projects</h3></div>
+  </div>
+  <div class="detail" id="detail"><span style="color:var(--muted)">Select a layer or project.</span></div>
+  <h2>Try a query</h2>
+  <div class="qs" id="qs"></div>
+  <div id="qout"></div>
+  <div class="foot">GeoPackage + PostgreSQL/PostGIS · Code: <a href="https://github.com/JohanArisato/geoai-cities-db" target="_blank" rel="noopener">github.com/JohanArisato/geoai-cities-db</a> · Johan Fernandez</div>
+</div>
+<script>
+const D = {"catalog": [{"layer": "sd_neighborhoods", "title": "San Diego neighborhoods (124)", "rows": 124, "synthetic": 0, "source": "Code for America, Click That 'Hood", "year": "2013", "description": "City of San Diego neighborhood polygons, each assigned to one of seven CurbCall areas."}, {"layer": "sd_areas", "title": "San Diego areas (7)", "rows": 7, "synthetic": 0, "source": "Derived from sd_neighborhoods", "year": "2026", "description": "Seven areas used for fair, per-area rankings: North, Coast, Mesas & Valley, Downtown & Uptown, Mid-City, Southeast, South Bay."}, {"layer": "curbcall_reports", "title": "CurbCall reports", "rows": 17, "synthetic": 0, "source": "CurbCall prototype", "year": "2026", "description": "Resident infrastructure reports. The current rows are labeled EXAMPLES written to demonstrate the app (is_example = 1), not resident data."}, {"layer": "sd_housing_sites_synthetic", "title": "Housing Element adequate sites (2021-2029)", "rows": 6000, "synthetic": 1, "source": "Synthetic sample (housing-site-realization)", "year": "2021", "description": "Parcels the City inventoried as able to hold new housing, with zoned capacity. SYNTHETIC: generated to mirror the real schema; not real parcels."}, {"layer": "sd_housing_permits_synthetic", "title": "Housing approvals (DSD)", "rows": 2383, "synthetic": 1, "source": "Synthetic sample (housing-site-realization)", "year": "2018-", "description": "Development approvals with dwelling-unit counts. SYNTHETIC."}, {"layer": "nyc_uhf42_shade", "title": "NYC UHF42 heat, canopy and poverty", "rows": 42, "synthetic": 0, "source": "NYC DOHMH Environment & Health Data Portal; analysis by who-gets-the-shade", "year": "2009-2017", "description": "Surface temperature, tree canopy, vegetation, poverty and heat-stress ER visits for 42 NYC neighborhoods, with planting ranks and robustness shares."}, {"layer": "sd_neighborhood_summary", "title": "San Diego neighborhood summary", "rows": 124, "synthetic": 1, "source": "Derived", "year": "2026", "description": "One row per neighborhood joining CurbCall reports and Housing Element sites."}], "cols": {"sd_neighborhoods": ["neighborhood_id", "name", "area_name", "area_order", "acres"], "sd_areas": ["area_name", "area_order", "acres", "n_neighborhoods"], "curbcall_reports": ["report_id", "type", "title", "where_text", "details", "neighborhood", "checklist", "is_example", "created_at", "neighborhood_id", "area_name"], "sd_housing_sites_synthetic": ["APN_8", "SITE_ID", "CPNAME", "ACRES", "ExtgUnits", "PotenUnits", "NetUnits", "HIGHDEN", "Extg_Landuse", "TPAHIIP", "CTCAC", "Ov_CZ", "Ov_CHLOZ", "neighborhood", "area_name"], "sd_housing_permits_synthetic": ["APPROVAL_ID", "APPROVAL_TYPE", "APPROVAL_ISSUE_DATE", "JOB_APN", "TOTAL_DU", "TOTAL_ADU", "TOTAL_JADU", "GIS_COMM_PLAN_NAME"], "nyc_uhf42_shade": ["uhf", "name", "borough", "surface_temp_f", "tree_canopy_pct", "vegetation_pct", "poverty_pct", "heat_ed_rate", "top10_share", "rank_canopy_gap", "rank_equity_weighted"], "sd_neighborhood_summary": ["neighborhood_id", "name", "area_name", "acres", "curbcall_reports", "curbcall_example_reports", "housing_sites", "housing_claimed_units"]}, "pl": [{"project": "curbcall", "layer": "sd_neighborhoods", "role": "geography"}, {"project": "housing-site-realization", "layer": "sd_neighborhoods", "role": "context"}, {"project": "curbcall", "layer": "sd_areas", "role": "ranking units"}, {"project": "curbcall", "layer": "curbcall_reports", "role": "reports"}, {"project": "housing-site-realization", "layer": "sd_housing_sites_synthetic", "role": "unit of analysis"}, {"project": "housing-site-realization", "layer": "sd_housing_permits_synthetic", "role": "outcome"}, {"project": "who-gets-the-shade", "layer": "nyc_uhf42_shade", "role": "analysis table"}, {"project": "geoai-for-cities", "layer": "nyc_uhf42_shade", "role": "maps"}, {"project": "curbcall", "layer": "sd_neighborhood_summary", "role": "research view"}, {"project": "housing-site-realization", "layer": "sd_neighborhood_summary", "role": "research view"}], "projects": [{"slug": "housing-site-realization", "title": "Will It Get Built? Predicting Which Housing Element Sites Are Realized", "repo": "https://github.com/JohanArisato/housing-site-realization", "status": "In progress"}, {"slug": "who-gets-the-shade", "title": "Who Gets the Shade? Ranking New York Neighborhoods for Tree Planting", "repo": "https://github.com/JohanArisato/who-gets-the-shade", "status": "Working paper"}, {"slug": "curbcall", "title": "CurbCall: Resident-Ranked Infrastructure Repairs for San Diego", "repo": "https://github.com/JohanArisato/curbcall", "status": "Prototype"}, {"slug": "geoai-for-cities", "title": "GeoAI for Cities: Research Series and Website", "repo": "https://github.com/JohanArisato/geoai-for-cities", "status": "Ongoing"}], "queries": {"Robust NYC tree-planting priorities": {"sql": "SELECT name, borough, poverty_pct, heat_ed_rate, top10_share\nFROM v_shade_priorities WHERE robust_priority = 1;", "rows": {"columns": ["name", "borough", "poverty_pct", "heat_ed_rate", "top10_share"], "data": [["Hunts Point - Mott Haven", "Bronx", 41.4, 11.2, 1.0], ["Williamsburg - Bushwick", "Brooklyn", 30.5, 14.8, 1.0], ["East Harlem", "Manhattan", 34.3, 14.4, 0.999], ["High Bridge - Morrisania", "Bronx", 38.7, 9.7, 0.989], ["East New York", "Brooklyn", 28.6, 12.2, 0.994], ["Bedford Stuyvesant - Crown Heights", "Brooklyn", 25.9, 12.4, 0.922]]}}, "Claimed housing capacity by area (synthetic)": {"sql": "SELECT area_name, SUM(housing_sites) AS sites,\n       SUM(housing_claimed_units) AS claimed_units\nFROM sd_neighborhood_summary GROUP BY area_name\nORDER BY claimed_units DESC;", "rows": {"columns": ["area_name", "sites", "claimed_units"], "data": [["Downtown & Uptown", 925, 30707], ["Mesas & Valley", 1222, 24691], ["North", 926, 21180], ["Coast", 1027, 16524], ["Southeast", 545, 9273], ["Mid-City", 554, 9013], ["South Bay", 373, 4398]]}}, "CurbCall reports by area": {"sql": "SELECT * FROM v_curbcall_area_summary;", "rows": {"columns": ["area_name", "n_neighborhoods", "resident_reports", "example_reports"], "data": [["North", 19, 0, 8], ["Coast", 16, 0, 1], ["Mesas & Valley", 16, 0, 3], ["Downtown & Uptown", 19, 0, 1], ["Mid-City", 24, 0, 1], ["Southeast", 21, 0, 2], ["South Bay", 9, 0, 1]]}}, "Resident reports within 400 m of a housing site (PostGIS)": {"sql": "SELECT r.title, r.type, s.site_id,\n       ROUND(ST_Distance(r.geom::geography, s.geom::geography)) AS meters\nFROM curbcall_reports r\nJOIN sd_housing_sites s\n  ON ST_DWithin(r.geom::geography, s.geom::geography, 400)\nORDER BY meters;", "rows": {"columns": ["title", "type", "SITE_ID", "meters"], "data": [["Street floods every time it rains", "Flooding", "S004942", 18], ["Bike lane vanishes mid-block", "Bike lane", "S000239", 24], ["Missing curb ramp at the trolley station", "Sidewalk", "S002334", 33], ["Bike lane disappears at a freeway ramp", "Bike lane", "S000683", 38], ["Sidewalk ends on the walk to the high school", "Sidewalk", "S005713", 44], ["No signal to cross to the park", "Crosswalk", "S001070", 48], ["Dark stretch on Linda Vista Rd", "Streetlight", "S004786", 49], ["No shade at a busy bus stop", "Shade and trees", "S004073", 51], ["Bus stop with no shade", "Shade and trees", "S001929", 58], ["Cluster of deep potholes", "Pothole", "S003767", 70]]}}}};
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const cat = Object.fromEntries(D.catalog.map(c => [c.layer, c]));
+const L = document.getElementById("layers"), Pj = document.getElementById("projects"), svg = document.getElementById("links");
+const nodes = {};
+D.catalog.forEach(c => { const n = document.createElement("div"); n.className = "node"; n.dataset.id = "l:" + c.layer;
+  n.innerHTML = `<code>${esc(c.layer)}</code>${c.synthetic ? '<span class="syn">synthetic</span>' : ""}<small>${esc(c.rows)} rows · ${esc(c.title)}</small>`;
+  n.onclick = () => select("l:" + c.layer); L.appendChild(n); nodes["l:" + c.layer] = n; });
+D.projects.forEach(p => { const n = document.createElement("div"); n.className = "node"; n.dataset.id = "p:" + p.slug;
+  n.innerHTML = `<b>${esc(p.title.split(":")[0].split("?")[0])}${p.title.includes("?") ? "?" : ""}</b><small>${esc(p.status)}</small>`;
+  n.onclick = () => select("p:" + p.slug); Pj.appendChild(n); nodes["p:" + p.slug] = n; });
+let cur = null;
+function drawLinks() {
+  const g = document.getElementById("graph").getBoundingClientRect();
+  svg.setAttribute("viewBox", `0 0 ${g.width} ${g.height}`);
+  svg.innerHTML = D.pl.map(e => { const a = nodes["l:" + e.layer], b = nodes["p:" + e.project]; if (!a || !b) return "";
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const x1 = ra.right - g.left, y1 = ra.top + ra.height / 2 - g.top, x2 = rb.left - g.left, y2 = rb.top + rb.height / 2 - g.top, mx = (x1 + x2) / 2;
+    const on = cur && (cur === "l:" + e.layer || cur === "p:" + e.project);
+    return `<path class="${on ? "on" : ""}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}"/>`; }).join("");
+}
+function select(id) {
+  cur = cur === id ? null : id;
+  const linked = new Set(cur ? [cur] : []);
+  if (cur) D.pl.forEach(e => { if (cur === "l:" + e.layer) linked.add("p:" + e.project); if (cur === "p:" + e.project) linked.add("l:" + e.layer); });
+  Object.entries(nodes).forEach(([k, n]) => { n.classList.toggle("on", k === cur); n.classList.toggle("dim", !!cur && !linked.has(k)); });
+  const det = document.getElementById("detail");
+  if (!cur) det.innerHTML = '<span style="color:var(--muted)">Select a layer or project.</span>';
+  else if (cur.startsWith("l:")) { const c = cat[cur.slice(2)];
+    const uses = D.pl.filter(e => e.layer === c.layer).map(e => `${esc(e.project)} (${esc(e.role)})`).join(", ");
+    det.innerHTML = `<b><code>${esc(c.layer)}</code></b>${c.synthetic ? '<span class="syn">synthetic</span>' : ""} · ${esc(c.rows)} rows<br>${esc(c.description)}<br><span style="color:var(--muted)">Source: ${esc(c.source)} (${esc(c.year)}) · Used by: ${uses || "none"}</span><div class="cols">${(D.cols[c.layer] || []).map(x => `<code>${esc(x)}</code>`).join("")}</div>`; }
+  else { const p = D.projects.find(x => "p:" + x.slug === cur);
+    det.innerHTML = `<b>${esc(p.title)}</b> · ${esc(p.status)}<br>Uses: ${D.pl.filter(e => e.project === p.slug).map(e => `<code>${esc(e.layer)}</code> as ${esc(e.role)}`).join(", ")}<br><a href="${esc(p.repo)}" target="_blank" rel="noopener">${esc(p.repo.replace("https://", ""))}</a>`; }
+  drawLinks();
+}
+const qs = document.getElementById("qs");
+Object.entries(D.queries).forEach(([name, q], i) => { const b = document.createElement("button"); b.className = "chip"; b.textContent = name;
+  b.onclick = () => { document.querySelectorAll("#qs button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    document.getElementById("qout").innerHTML = `<pre>${esc(q.sql)}</pre><div class="tw"><table><thead><tr>${q.rows.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${q.rows.data.map(r => `<tr>${r.map(v => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; };
+  qs.appendChild(b); if (i === 0) setTimeout(() => b.click()); });
+window.addEventListener("resize", drawLinks); setTimeout(drawLinks, 50);
+</script>
+</body>
+</html>
