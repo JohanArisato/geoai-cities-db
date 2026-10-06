@@ -1,5 +1,7 @@
 # GeoAI Cities DB
 
+> 🌐 [Interactive database explorer](https://johanarisato.github.io/geoai-for-cities/explore/database.html) · [GeoAI for Cities](https://johanarisato.github.io/geoai-for-cities/) · [Portfolio](https://johanarisato.github.io/Johan.github.io/)
+
 **One spatial database behind every project in my GeoAI for Cities research.**
 
 Each of my projects asks a version of the same question, *who gets what in cities?*, but each started with its own data files. This repository puts them in one place: a single GeoPackage (`geoai_cities.gpkg`) with San Diego and New York layers, a catalog that records where every layer came from and whether it is real or synthetic, and views that answer questions spanning projects.
